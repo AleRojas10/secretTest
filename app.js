@@ -2,7 +2,8 @@
 require('dotenv').config()
 const express = require("express");
 const bodyParser = require("body-parser");
-const md5 = require('md5');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const app = express();
 
@@ -35,36 +36,44 @@ app.get("/register", function(req, res){
 });
 
 app.post("/register", function(req, res){
-  const user = new User({
-    email: req.body.username,
-    password: md5(req.body.password)
-  })
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+    const user = new User({
+      email: req.body.username,
+      password: hash
+    });
 
-  user.save(function(err){
-    if(err){
-      console.log(err);
-    }else{
-      res.render("secrets");
-    }
-  })
+    user.save(function(err){
+      if(err){
+        console.log(err);
+      }else{
+        res.render("secrets");
+      }
+    })
+  });
 });
 
 app.post("/login", function(req, res){
   const username = req.body.username
-  const password = md5(req.body.password);
+  const password = req.body.password;
 
   User.findOne({email: username}, function(err, foundList) {
     if (err) {
       console.log(err);
     }else{
       if (foundList) {
-        if (foundList.password === password) {
-          res.render("secrets");
-        }else{
-          res.send("Contraseña incorrecta");
-        }
+        bcrypt.compare(password, foundList.password, function(err, result) {
+          if(err){
+            console.log(err);
+          }else{
+            if (result) {
+              res.render("secrets");
+            }else{
+              res.send("Contraseña incorrecta");
+            }
+          }
+        });
       }else{
-        res.send("Usuario no existe");
+        res.send("El usuario ingresado no existe");
       }
     }
   });
